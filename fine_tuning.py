@@ -9,7 +9,7 @@ def fine_tune(model, model_name, state):
         elif(model_name == "resnet_50"):
             for param in model.layer4.parameters():
                 param.requires_grad = True
-        elif(model_name == "efficientnet_v2_s"):
+        elif(model_name == "efficientnet_v2_s" or model_name == "efficientnet_b3"):
             for param in model.features[-2:].parameters():
                 param.requires_grad = True
         elif(model_name == "tiny_vit"):
