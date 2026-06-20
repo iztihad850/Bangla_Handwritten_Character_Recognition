@@ -3,16 +3,12 @@ import shutil
 import random
 
 source_dir = "../BanglaLekha-Isolated/Images"
-train_dir = "../BanglaLekha_dataset_split/train"
-val_dir = "../BanglaLekha_dataset_split/validation"
-test_dir = "../BanglaLekha_dataset_split/test"
+output_dir = "../BanglaLekha_8fold"
 
-os.makedirs(train_dir, exist_ok=True)
-os.makedirs(val_dir, exist_ok=True)
-os.makedirs(test_dir, exist_ok=True)
+num_folds = 8
+test_ratio = 0.20
 
-train_split_ratio = 0.7
-val_split_ratio = 0.1
+random.seed(42)
 
 for class_name in os.listdir(source_dir):
     class_path = os.path.join(source_dir, class_name)
@@ -23,29 +19,88 @@ for class_name in os.listdir(source_dir):
     images = os.listdir(class_path)
     random.shuffle(images)
 
-    train_split_idx = int(len(images) * train_split_ratio)
-    val_split_idx = train_split_idx + int(len(images) * val_split_ratio)
+    # -----------------------------
+    # Separate 20% Test Data
+    # -----------------------------
+    test_size = int(len(images) * test_ratio)
 
-    train_images = images[:train_split_idx]
-    val_images = images[train_split_idx:val_split_idx]
-    test_images = images[val_split_idx:]
+    test_images = images[:test_size]
+    cv_images = images[test_size:]
 
-    # Create class folders
-    os.makedirs(os.path.join(train_dir, class_name), exist_ok=True)
-    os.makedirs(os.path.join(val_dir, class_name), exist_ok=True)
-    os.makedirs(os.path.join(test_dir, class_name), exist_ok=True)
+    # -----------------------------
+    # Save Test Data
+    # -----------------------------
+    test_class_dir = os.path.join(
+        output_dir,
+        "test",
+        class_name
+    )
 
-    # Move files
-    for img in train_images:
-        shutil.copy(os.path.join(class_path, img),
-                    os.path.join(train_dir, class_name, img))
-        
-    for img in val_images:
-        shutil.copy(os.path.join(class_path, img),
-                    os.path.join(val_dir, class_name, img))
+    os.makedirs(test_class_dir, exist_ok=True)
 
     for img in test_images:
-        shutil.copy(os.path.join(class_path, img),
-                    os.path.join(test_dir, class_name, img))
+        shutil.copy(
+            os.path.join(class_path, img),
+            os.path.join(test_class_dir, img)
+        )
 
-print("Done splitting dataset ✅")
+    # -----------------------------
+    # Create 8 folds from remaining 80%
+    # -----------------------------
+    fold_size = len(cv_images) // num_folds
+    folds = []
+
+    for i in range(num_folds):
+        start = i * fold_size
+
+        if i == num_folds - 1:
+            end = len(cv_images)
+        else:
+            end = (i + 1) * fold_size
+
+        folds.append(cv_images[start:end])
+
+    # -----------------------------
+    # Generate fold datasets
+    # -----------------------------
+    for fold_idx in range(num_folds):
+
+        val_images = folds[fold_idx]
+
+        train_images = []
+        for i in range(num_folds):
+            if i != fold_idx:
+                train_images.extend(folds[i])
+
+        train_class_dir = os.path.join(
+            output_dir,
+            f"fold_{fold_idx + 1}",
+            "train",
+            class_name
+        )
+
+        val_class_dir = os.path.join(
+            output_dir,
+            f"fold_{fold_idx + 1}",
+            "validation",
+            class_name
+        )
+
+        os.makedirs(train_class_dir, exist_ok=True)
+        os.makedirs(val_class_dir, exist_ok=True)
+
+        # Copy training images
+        for img in train_images:
+            shutil.copy(
+                os.path.join(class_path, img),
+                os.path.join(train_class_dir, img)
+            )
+
+        # Copy validation images
+        for img in val_images:
+            shutil.copy(
+                os.path.join(class_path, img),
+                os.path.join(val_class_dir, img)
+            )
+
+print("20% Test Split + 8-Fold Cross Validation Created ✅")
